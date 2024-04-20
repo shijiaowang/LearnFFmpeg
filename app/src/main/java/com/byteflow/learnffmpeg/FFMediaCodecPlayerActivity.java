@@ -18,6 +18,8 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
 import android.view.SurfaceHolder;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.SeekBar;
 import android.widget.Toast;
 
@@ -48,59 +50,16 @@ public class FFMediaCodecPlayerActivity extends AppCompatActivity implements Sur
     private static final int PERMISSION_REQUEST_CODE = 1;
     private MySurfaceView mSurfaceView = null;
     private FFMediaPlayer mMediaPlayer = null;
-    private SeekBar mSeekBar = null;
-    private boolean mIsTouch = false;
-    private String mVideoPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/byteflow/vr.mp4";
+    private String mVideoPath = "http://ser.89c.cn:10086/hls/wN9gJW1Sg/playlist.m3u8";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Window window = getWindow();
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_media_player);
         mSurfaceView = findViewById(R.id.surface_view);
         mSurfaceView.getHolder().addCallback(this);
 
-        mSeekBar = findViewById(R.id.seek_bar);
-        mSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-                mIsTouch = true;
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                Log.d(TAG, "onStopTrackingTouch() called with: progress = [" + seekBar.getProgress() + "]");
-                if(mMediaPlayer != null) {
-                    mMediaPlayer.seekToPosition(mSeekBar.getProgress());
-                    mIsTouch = false;
-                }
-
-            }
-        });
-
-
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (!hasPermissionsGranted(REQUEST_PERMISSIONS)) {
-            ActivityCompat.requestPermissions(this, REQUEST_PERMISSIONS, PERMISSION_REQUEST_CODE);
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (!hasPermissionsGranted(REQUEST_PERMISSIONS)) {
-                Toast.makeText(this, "We need the permission: WRITE_EXTERNAL_STORAGE", Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        }
     }
 
     @Override
@@ -152,8 +111,6 @@ public class FFMediaCodecPlayerActivity extends AppCompatActivity implements Sur
                     case MSG_REQUEST_RENDER:
                         break;
                     case MSG_DECODING_TIME:
-                        if(!mIsTouch)
-                            mSeekBar.setProgress((int) msgValue);
                         break;
                     default:
                         break;
@@ -164,26 +121,11 @@ public class FFMediaCodecPlayerActivity extends AppCompatActivity implements Sur
     }
 
     private void onDecoderReady() {
-        int videoWidth = (int) mMediaPlayer.getMediaParams(MEDIA_PARAM_VIDEO_WIDTH);
-        int videoHeight = (int) mMediaPlayer.getMediaParams(MEDIA_PARAM_VIDEO_HEIGHT);
-        if(videoHeight * videoWidth != 0)
-            mSurfaceView.setAspectRatio(videoWidth, videoHeight);
-
-        int duration = (int) mMediaPlayer.getMediaParams(MEDIA_PARAM_VIDEO_DURATION);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            mSeekBar.setMin(0);
-        }
-        mSeekBar.setMax(duration);
+//        int videoWidth = (int) mMediaPlayer.getMediaParams(MEDIA_PARAM_VIDEO_WIDTH);
+//        int videoHeight = (int) mMediaPlayer.getMediaParams(MEDIA_PARAM_VIDEO_HEIGHT);
+//        if(videoHeight * videoWidth != 0)
+//            mSurfaceView.setAspectRatio(videoWidth, videoHeight);
+//
+//        int duration = (int) mMediaPlayer.getMediaParams(MEDIA_PARAM_VIDEO_DURATION);
     }
-
-    protected boolean hasPermissionsGranted(String[] permissions) {
-        for (String permission : permissions) {
-            if (ActivityCompat.checkSelfPermission(this, permission)
-                    != PackageManager.PERMISSION_GRANTED) {
-                return false;
-            }
-        }
-        return true;
-    }
-
 }
