@@ -413,6 +413,20 @@ void HWCodecPlayer::VideoDecodeThreadProc(HWCodecPlayer *player) {
         LOGCATI("HWCodecPlayer::VideoDecodeThreadProc status: %d\n", status);
         uint8_t* buffer;
         if (status >= 0) {
+            int framelen = 0;
+            {
+                int mWidth, mHeight,type;
+                auto format = AMediaCodec_getOutputFormat(videoCodec);
+                AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_WIDTH, &mWidth);
+                AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_HEIGHT, &mHeight);
+                AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, &type);
+                int32_t localColorFMT;
+                AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_COLOR_FORMAT,
+                                      &localColorFMT);
+                framelen = info.size;
+                LOGCATE("out:[%d]X[%d]%d,%d ", mWidth, mHeight, type,localColorFMT); //21 == nv21格式 具体的定义在哪里？？？
+            }
+
             SyncClock* videoClock = &player->m_VideoClock;
             double presentationNano = info.presentationTimeUs * av_q2d(player->m_VideoTimeBase) * 1000;
             videoClock->SetClock(presentationNano, GetSysCurrentTime());
@@ -432,11 +446,13 @@ void HWCodecPlayer::VideoDecodeThreadProc(HWCodecPlayer *player) {
             size_t size;
             LOGCATI("HWCodecPlayer::VideoDecodeThreadProc sync video curPts = %lf", presentationNano);
             buffer = AMediaCodec_getOutputBuffer(videoCodec, status, &size);
+            AMediaCodec* videoCodec = player->m_MediaCodec;
             LOGCATI("HWCodecPlayer::VideoDecodeThreadProc buffer: %p, buffer size: %d , globalVar %d", buffer, size, globalVar);
             if (info.flags & AMEDIACODEC_BUFFER_FLAG_CODEC_CONFIG) {
                 // 忽略码率配置数据
             } else {
-                // 将解码数据写入文件
+                // 将解码数据写入文件,flags ==1 是关键帧
+                LOGCATI("HWCodecPlayer::当前帧的类型 %d", info.flags);
                 if((globalVar % 10) == 0){
                     // 打开输出文件
                     const char* sdCardPath = "/storage/sdcard0/byteflow/";
@@ -446,9 +462,9 @@ void HWCodecPlayer::VideoDecodeThreadProc(HWCodecPlayer *player) {
                     char *result = (char *) malloc((strlen(sdCardPath) + strlen(filename) + 6) * sizeof(char));
                     strcpy(result, sdCardPath);
                     strcat(result, filename);
-                    strcat(result, ".jpeg");
-                    outputFile = fopen(result, "wb");
-                    fwrite(buffer, 1, info.size, outputFile);
+                    strcat(result, ".png");
+                    outputFile = fopen(result, "w+");
+                    fwrite(buffer, 1, framelen, outputFile);
                 }
             }
             AMediaCodec_releaseOutputBuffer(videoCodec, status, info.size != 0);
@@ -586,6 +602,7 @@ int HWCodecPlayer::InitDecoder() {
         for (int i = 0; i < numTracks; i++) {
             AMediaFormat *format = AMediaExtractor_getTrackFormat(m_MediaExtractor, i);
             const char *s = AMediaFormat_toString(format);
+
             LOGCATE("HWCodecPlayer::InitDecoder track %d format: %s", i, s);
             const char *mime;
             if (!AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &mime)) {
@@ -599,6 +616,8 @@ int HWCodecPlayer::InitDecoder() {
                 m_MediaCodec = AMediaCodec_createDecoderByType(mime);
                 AMediaCodec_configure(m_MediaCodec, format, m_ANativeWindow, NULL, 0);
                 AMediaCodec_start(m_MediaCodec);
+            }
+            if(strncmp(mime, "video/",6)==0){
             }
             AMediaFormat_delete(format);
         }
