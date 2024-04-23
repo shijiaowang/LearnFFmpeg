@@ -7,12 +7,23 @@
  * */
 
 package com.byteflow.learnffmpeg;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
-
+    private static final String[] REQUEST_PERMISSIONS = {
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+    };
+    private static final int PERMISSION_REQUEST_CODE = 1;
 
 
     @Override
@@ -22,7 +33,40 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            if (!hasPermissionsGranted(REQUEST_PERMISSIONS)) {
+                Toast.makeText(this, "We need the permission: WRITE_EXTERNAL_STORAGE", Toast.LENGTH_SHORT).show();
+            }else{
+                gotoTargetAct();
+            }
+        } else {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
+        if (!hasPermissionsGranted(REQUEST_PERMISSIONS)) {
+            ActivityCompat.requestPermissions(this, REQUEST_PERMISSIONS, PERMISSION_REQUEST_CODE);
+        }else{
+            gotoTargetAct();
+        }
+    }
+
+    private void gotoTargetAct(){
+        startActivity(new Intent(this,FFMediaCodecPlayerActivity.class));
+        finish();
+    }
+
+    protected boolean hasPermissionsGranted(String[] permissions) {
+        for (String permission : permissions) {
+            if (ActivityCompat.checkSelfPermission(this, permission)
+                    != PackageManager.PERMISSION_GRANTED) {
+                return false;
+            }
+        }
+        return true;
     }
 }

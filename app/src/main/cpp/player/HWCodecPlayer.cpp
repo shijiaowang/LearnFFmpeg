@@ -369,9 +369,11 @@ void HWCodecPlayer::AudioDecodeThreadProc(HWCodecPlayer *player) {
 
 void HWCodecPlayer::VideoDecodeThreadProc(HWCodecPlayer *player) {
     LOGCATE("HWCodecPlayer::VideoDecodeThreadProc start");
+    int globalVar = 0;
     AVPacketQueue* videoPacketQueue = player->m_VideoPacketQueue;
     AMediaCodec* videoCodec = player->m_MediaCodec;
     AVPacket *packet = av_packet_alloc();
+    FILE *outputFile = nullptr;
     for(;;) {
         while (player->m_PlayerState == PLAYER_STATE_PAUSE) {
             std::unique_lock<std::mutex> lock(player->m_Mutex);
@@ -392,6 +394,7 @@ void HWCodecPlayer::VideoDecodeThreadProc(HWCodecPlayer *player) {
         if(videoPacketQueue->GetPacket(packet) < 0) {
             break;
         }
+
         LOGCATI("HWCodecPlayer::VideoDecodeThreadProc packetSize=%d, buffTime=%lfs",videoPacketQueue->GetPacketSize(), videoPacketQueue->GetDuration()* av_q2d(player->m_VideoTimeBase));
         ssize_t bufIdx = -1;
         bufIdx = AMediaCodec_dequeueInputBuffer(videoCodec, 0);
@@ -425,11 +428,29 @@ void HWCodecPlayer::VideoDecodeThreadProc(HWCodecPlayer *player) {
 //                int sleepMs = delay > MAX_SYNC_SLEEP_TIME ? MAX_SYNC_SLEEP_TIME : delay;
 //                usleep(sleepMs * 1000);
 //            }
-
+            globalVar++;
             size_t size;
             LOGCATI("HWCodecPlayer::VideoDecodeThreadProc sync video curPts = %lf", presentationNano);
             buffer = AMediaCodec_getOutputBuffer(videoCodec, status, &size);
-            LOGCATI("HWCodecPlayer::VideoDecodeThreadProc buffer: %p, buffer size: %d", buffer, size);
+            LOGCATI("HWCodecPlayer::VideoDecodeThreadProc buffer: %p, buffer size: %d , globalVar %d", buffer, size, globalVar);
+            if (info.flags & AMEDIACODEC_BUFFER_FLAG_CODEC_CONFIG) {
+                // 忽略码率配置数据
+            } else {
+                // 将解码数据写入文件
+                if((globalVar % 10) == 0){
+                    // 打开输出文件
+                    const char* sdCardPath = "/storage/sdcard0/byteflow/";
+                    char* filename = (char*)malloc(10 * sizeof(char));
+                    // 将整数转换为字符串
+                    sprintf(filename, "%d", globalVar);
+                    char *result = (char *) malloc((strlen(sdCardPath) + strlen(filename) + 6) * sizeof(char));
+                    strcpy(result, sdCardPath);
+                    strcat(result, filename);
+                    strcat(result, ".jpeg");
+                    outputFile = fopen(result, "wb");
+                    fwrite(buffer, 1, info.size, outputFile);
+                }
+            }
             AMediaCodec_releaseOutputBuffer(videoCodec, status, info.size != 0);
         } else if (status == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
             LOGCATI("HWCodecPlayer::VideoDecodeThreadProc output buffers changed");
